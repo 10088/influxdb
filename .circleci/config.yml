@@ -791,6 +791,13 @@ jobs:
       - run:
           command: ./dist/influxd_linux_amd64/influxd --store=memory --log-level=debug
           background: true
+      - run:
+          name: Wait for influxd
+          no_output_timeout: 30s
+          command: |
+            while ! curl localhost:8086/health; do
+              sleep 1
+            done
       - run: mkdir -p ~/project/results
       - run: docker run --net host -v /var/run/docker.sock:/var/run/docker.sock -v ~/project/results:/grace/test-results/grace-results quay.io/influxdb/grace:daily
       - store_artifacts:
