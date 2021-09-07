@@ -143,7 +143,8 @@ workflows:
       - tlstest:
           requires:
             - godeps
-      - deploy_nightly:
+      - release:
+          is-nightly: true
           requires:
             - changelog
             - gotest
@@ -155,10 +156,10 @@ workflows:
                 - master
       - litmus_integration:
           requires:
-            - deploy_nightly
+            - release
       - grace_daily:
           requires:
-            - deploy_nightly
+            - release
 
 commands:
   # Install system dependencies needed to run a native build of influxd
@@ -270,6 +271,9 @@ commands:
     parameters:
       publish_release:
         type: boolean
+      is_nightly:
+        type: boolean
+        default: false
     steps:
       - when:
           condition: << parameters.publish_release >>
@@ -322,9 +326,24 @@ commands:
       - when:
           condition: << parameters.publish_release >>
           steps:
-            - run:
-                name: Publish release
-                command: goreleaser --debug release -p 1 --rm-dist --skip-validate
+            - when:
+                condition: << parameters.is_nightly >>
+                steps:
+                  - run:
+                      name: Make a pseudo-tag for the nightly build
+                      command: |
+                        latest_tag=$(git describe --tags --abrev=0)
+                        git tag ${latest_tag}+nightly.$(date +%Y.%m.%d)
+                  - run:
+                      name: Publish nightly snapshot release
+                      command: IS_NIGHTLY=1 goreleaser --debug release -p 1 --rm-dist
+            - unless:
+                condition: << parameters.is_nightly >>
+                steps:
+                  - run:
+                      name: Publish tagged release
+                      command: goreleaser --debug release -p 1 --rm-dist
+
   quay_login:
     steps:
       - run:
@@ -670,7 +689,10 @@ jobs:
             instance_id=$(AWS_ACCESS_KEY_ID=${TEST_AWS_ACCESS_KEY_ID} AWS_SECRET_ACCESS_KEY=${TEST_AWS_SECRET_ACCESS_KEY} aws --region us-west-2 ec2 describe-instances --filters "Name=tag:Name,Values=$name" --query 'Reservations[].Instances[].InstanceId' --output text)
             AWS_ACCESS_KEY_ID=${TEST_AWS_ACCESS_KEY_ID} AWS_SECRET_ACCESS_KEY=${TEST_AWS_SECRET_ACCESS_KEY} aws --region us-west-2 ec2 terminate-instances --instance-ids $instance_id
 
-  deploy_nightly:
+  release:
+    parameters:
+      is-nightly:
+        type: boolean
     executor: linux-machine
     environment:
       TMPDIR: /mnt/ramdisk
@@ -690,6 +712,7 @@ jobs:
       - upgrade_go
       - run_goreleaser:
           publish_release: true
+          is_nightly: << parameters.is-nightly >>
       - persist_to_workspace:
           root: .
           paths:

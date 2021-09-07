@@ -24,7 +24,7 @@ builds:
       - PKG_CONFIG=$GOPATH/bin/pkg-config
       - MACOSX_DEPLOYMENT_TARGET=10.11
     ldflags:
-      - -s -w -X main.version=nightly -X main.commit={{.ShortCommit}} -X main.date={{.Date}} {{if eq .Os "linux"}}-extldflags "-fno-PIC -static -Wl,-z,stack-size=8388608"{{end}}
+      - -s -w -X main.version={{.Version}} -X main.commit={{.ShortCommit}} -X main.date={{.Date}} {{if eq .Os "linux"}}-extldflags "-fno-PIC -static -Wl,-z,stack-size=8388608"{{end}}
     binary: influxd
     hooks:
       pre: make generate-web-assets
@@ -63,9 +63,9 @@ nfpms:
           amd64: x86_64
           arm64: aarch64
           armhf: armv7hl
-        file_name_template: "influxdb2-nightly.{{ .Arch }}"
+        file_name_template: influxdb2-{{if index .Env "IS_NIGHTLY"}}nightly{{else}}{{.Version}}{{end}}.{{ .Arch }}
       deb:
-        file_name_template: "influxdb2-nightly-{{ .Arch }}"
+        file_name_template: influxdb2-{{if index .Env "IS_NIGHTLY"}}nightly{{ekse}}{{.Version}}{{end}}-{{ .Arch }}
     vendor: InfluxData
     homepage: https://influxdata.com
     maintainer: support@influxdb.com
@@ -79,7 +79,7 @@ archives:
       - goos: windows
         format: zip
     wrap_in_directory: true
-    name_template: "influxdb2-nightly-{{ .Os }}-{{ .Arch }}"
+    name_template: influxdb2-{{if index .Env "IS_NIGHTLY"}}nightly{{else}}{{.Version}}{{end}}-{{ .Os }}-{{ .Arch }}
     files:
       - LICENSE
       - README.md
@@ -102,14 +102,14 @@ blobs:
       - glob: ./CHANGELOG.md
 
 checksum:
-  name_template: "influxdb2-nightly.sha256"
+  name_template: influxdb2-{{if index .Env "IS_NIGHTLY"}}nightly{{else}}{{.Version}}{{end}}.sha256
   algorithm: sha256
 
 dockers:
   - goos: linux
     goarch: amd64
     image_templates:
-      - "quay.io/influxdb/influxdb-amd64:nightly"
+      - quay.io/influxdb/influxdb-amd64:{{if index .Env "IS_NIGHTLY"}}nightly{{else}}{{.Version}}{{end}}
     dockerfile: docker/influxd/Dockerfile
     extra_files:
       - docker/influxd/entrypoint.sh
@@ -119,7 +119,7 @@ dockers:
   - goos: linux
     goarch: arm64
     image_templates:
-      - "quay.io/influxdb/influxdb-arm64v8:nightly"
+      - quay.io/influxdb/influxdb-arm64v8:{{if index .Env "IS_NIGHTLY"}}nightly{{else}}{{.Version}}{{end}}
     dockerfile: docker/influxd/Dockerfile
     extra_files:
       - docker/influxd/entrypoint.sh
@@ -128,10 +128,10 @@ dockers:
     use_buildx: true
 
 docker_manifests:
-  - name_template: "quay.io/influxdb/influxdb:nightly"
+  - name_template: quay.io/influxdb/influxdb:{{if index .Env "IS_NIGHTLY"}}nightly{{else}}{{.Version}}{{end}}
     image_templates:
-      - "quay.io/influxdb/influxdb-amd64:nightly"
-      - "quay.io/influxdb/influxdb-arm64v8:nightly"
+      - quay.io/influxdb/influxdb-amd64:{{if index .Env "IS_NIGHTLY"}}nightly{{else}}{{.Version}}{{end}}
+      - quay.io/influxdb/influxdb-arm64v8:{{if index .Env "IS_NIGHTLY"}}nightly{{else}}{{.Version}}{{end}}
 
 signs:
   - signature: "${artifact}.asc"
