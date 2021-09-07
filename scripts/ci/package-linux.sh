@@ -47,7 +47,7 @@ description: Distributed time-series database
 license: MIT
 conflicts:
   - influxdb
-dependencies:
+depends:
   - curl
 recommends:
   - influxdb2-cli
