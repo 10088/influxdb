@@ -322,7 +322,7 @@ commands:
                 name: Build release
                 # `goreleaser release --skip-publish` builds Docker images, but doesn't push them.
                 # As opposed to `goreleaser build`, which stops before building Dockers.
-                command: goreleaser --debug release --skip-publish --skip-sign -p 1 --rm-dist --skip-validate
+                command: VERSION_NAME_OVERRIDE=SNAPSHOT goreleaser --debug release --skip-publish --skip-sign -p 1 --rm-dist --skip-validate
       - when:
           condition: << parameters.publish_release >>
           steps:
@@ -336,7 +336,7 @@ commands:
                         git tag ${latest_tag}+nightly.$(date +%Y.%m.%d)
                   - run:
                       name: Publish nightly snapshot release
-                      command: IS_NIGHTLY=1 goreleaser --debug release -p 1 --rm-dist
+                      command: VERSION_NAME_OVERRIDE=nightly goreleaser --debug release -p 1 --rm-dist
             - unless:
                 condition: << parameters.is_nightly >>
                 steps:
@@ -581,7 +581,7 @@ jobs:
           name: Terraform apply
           command: |
             set -x
-            export DEBNAME="/tmp/workspace/artifacts/influxdb2-nightly-amd64.deb"
+            export DEBNAME="/tmp/workspace/artifacts/influxdb2-SNAPSHOT-amd64.deb"
             terraform -chdir=scripts/ci init -input=false
             AWS_ACCESS_KEY_ID=$TEST_AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY=$TEST_AWS_SECRET_ACCESS_KEY terraform \
               -chdir=scripts/ci \
