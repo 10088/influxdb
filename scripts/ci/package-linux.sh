@@ -39,7 +39,6 @@ name: influxdb2
 
 arch: ${arch}
 version: ${version}
-version_schema: none
 
 vendor: InfluxData
 homepage: https://influxdata.com
@@ -48,6 +47,10 @@ description: Distributed time-series database
 license: MIT
 conflicts:
   - influxdb
+dependencies:
+  - curl
+recommends:
+  - influxdb2-cli
 contents:
   - src: ${bindir}/influxd
     dst: /usr/bin/influxd
@@ -69,7 +72,7 @@ EOF
 }
 
 function main() {
-    local -r version=dev # TODO: Take as input
+    local -r version=$(${DIST_DIR}/influxd_linux_amd64/influxd version | cut -f 2 -d ' ')
 
     install_nfpm
     create_package amd64 ${version} ${DIST_DIR}/influxd_linux_amd64 deb

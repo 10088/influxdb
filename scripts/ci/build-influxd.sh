@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 set -eo pipefail
 
-# TODO: Inject real version into these.
-
 function build_linux () {
     TAGS=osusergo,netgo,static_build,assets,sqlite_foreign_keys,sqlite_json
     if [[ $(go env GOARCH) != amd64 ]]; then
@@ -15,7 +13,7 @@ function build_linux () {
     PKG_CONFIG=$(which pkg-config) CC=musl-gcc go build \
         -tags "$TAGS" \
         -buildmode pie \
-        -ldflags "-s -w -X main.version=dev -X main.commit=${commit} -X main.date=${build_date} -extldflags '${extld}'" \
+        -ldflags "-s -w -X main.version=${2} -X main.commit=${commit} -X main.date=${build_date} -extldflags '${extld}'" \
         -o "${1}/" \
         ./cmd/influxd/
 }
@@ -26,7 +24,7 @@ function build_mac () {
     PKG_CONFIG=$(which pkg-config) go build \
         -tags assets,sqlite_foreign_keys,sqlite_json \
         -buildmode pie \
-        -ldflags "-s -w -X main.version=dev -X main.commit=${commit} -X main.date=${build_date}" \
+        -ldflags "-s -w -X main.version=${2} -X main.commit=${commit} -X main.date=${build_date}" \
         -o "${1}/" \
         ./cmd/influxd/
 }
@@ -37,29 +35,48 @@ function build_windows () {
     PKG_CONFIG=$(which pkg-config) CC=x86_64-w64-mingw32-gcc go build \
         -tags assets,sqlite_foreign_keys,sqlite_json \
         -buildmode exe \
-        -ldflags "-s -w -X main.version=dev -X main.commit=${commit} -X main.date=${build_date}" \
+        -ldflags "-s -w -X main.version=${2} -X main.commit=${commit} -X main.date=${build_date}" \
         -o "${1}/" \
         ./cmd/influxd/
 }
 
 function main () {
-    if [[ $# != 1 ]]; then
-        >&2 echo Usage: $0 '<output-dir>'
+    if [[ $# != 2 ]]; then
+        >&2 echo Usage: $0 '<output-dir>' '<build-type>'
         exit 1
     fi
-    local -r out_dir=$1
+    local -r out_dir=$1 build_type=$2
+    local version
+    case "$build_type" in
+      release)
+        version=$(git describe --tags --abbrev=0 --exact-match)
+        ;;
+      nightly)
+        version=$(git describe --tags --abbrev=0)+nightly.$(date +%Y.%m.%d)
+        ;;
+      snapshot)
+        version=$(git describe --tags --abbrev=0)+SNAPSHOT.$(git rev-parse --short HEAD)
+        ;;
+      *)
+        >&2 echo Error: unknown build type "'$build_type'"
+        ;;
+    esac
+    if [ -z "$version" ]; then
+      >&2 echo Error: "couldn't" compute version for build type "'$build_type'"
+      exit 1
+    fi
 
     rm -rf "$out_dir"
     mkdir -p "$out_dir"
     case $(go env GOOS) in
         linux)
-            build_linux "$out_dir"
+            build_linux "$out_dir" "$version"
             ;;
         darwin)
-            build_mac "$out_dir"
+            build_mac "$out_dir" "$version"
             ;;
         windows)
-            build_windows "$out_dir"
+            build_windows "$out_dir" "$version"
             ;;
         *)
             >&2 echo Error: unknown OS $(go env GOOS)

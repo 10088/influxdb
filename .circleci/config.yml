@@ -29,6 +29,7 @@ workflows:
     jobs:
       - lint
       - build:
+          build-type: snapshot
           matrix:
             parameters:
               executor:
@@ -110,6 +111,12 @@ jobs:
     parameters:
       executor:
         type: executor
+      build-type:
+        type: string
+        enum:
+          - snapshot
+          - nightly
+          - release
     executor: << parameters.executor >>
     steps:
       - checkout
@@ -122,7 +129,7 @@ jobs:
           command: |
             DEST=dist/influxd_$(go env GOOS)_$(go env GOARCH)
             mkdir -p "$DEST"
-            ./scripts/ci/build-influxd.sh "$DEST"
+            ./scripts/ci/build-influxd.sh "$DEST" "<< parameters.build-type >>"
       - store_artifacts:
           path: dist
       - persist_to_workspace:
