@@ -33,9 +33,10 @@ type APIHandler struct {
 // APIBackend is all services and associated parameters required to construct
 // an APIHandler.
 type APIBackend struct {
-	AssetsPath string // if empty then assets are served from bindata.
-	UIDisabled bool   // if true requests for the UI will return 404
-	Logger     *zap.Logger
+	AssetsPath     string // if empty then assets are served from bindata.
+	UIDisabled     bool   // if true requests for the UI will return 404
+	Logger         *zap.Logger
+	FluxLogEnabled bool
 	errors.HTTPErrorHandler
 	SessionRenewDisabled bool
 	// MaxBatchSizeBytes is the maximum number of bytes which can be written
@@ -54,8 +55,7 @@ type APIBackend struct {
 	// write request. A value of zero specifies there is no limit.
 	WriteParserMaxValues int
 
-	NewBucketService func(*influxdb.Source) (influxdb.BucketService, error)
-	NewQueryService  func(*influxdb.Source) (query.ProxyQueryService, error)
+	NewQueryService func(*influxdb.Source) (query.ProxyQueryService, error)
 
 	WriteEventRecorder metric.EventRecorder
 	QueryEventRecorder metric.EventRecorder
@@ -73,7 +73,7 @@ type APIBackend struct {
 	PasswordV1Service               influxdb.PasswordsService
 	AuthorizerV1                    influxdb.AuthorizerV1
 	OnboardingService               influxdb.OnboardingService
-	DBRPService                     influxdb.DBRPMappingServiceV2
+	DBRPService                     influxdb.DBRPMappingService
 	BucketService                   influxdb.BucketService
 	SessionService                  influxdb.SessionService
 	UserService                     influxdb.UserService
@@ -192,6 +192,8 @@ func NewAPIHandler(b *APIBackend, opts ...APIHandlerOptFn) *APIHandler {
 	h.Mount(prefixTelegraf, NewTelegrafHandler(b.Logger, telegrafBackend))
 
 	h.Mount("/api/v2/flags", b.FlagsHandler)
+
+	h.Mount(prefixResources, NewResourceListHandler())
 
 	variableBackend := NewVariableBackend(b.Logger.With(zap.String("handler", "variable")), b)
 	variableBackend.VariableService = authorizer.NewVariableService(b.VariableService)

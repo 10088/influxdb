@@ -7,7 +7,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/influxdata/flux/ast/astutil"
 	platform2 "github.com/influxdata/influxdb/v2/kit/platform"
+	"github.com/stretchr/testify/require"
 
 	"github.com/andreyvit/diff"
 	"github.com/influxdata/flux/ast"
@@ -18,35 +20,35 @@ import (
 	platformtesting "github.com/influxdata/influxdb/v2/testing"
 )
 
-var dbrpMappingSvc = &mock.DBRPMappingServiceV2{}
+var dbrpMappingSvc = &mock.DBRPMappingService{}
 var organizationID platform2.ID
 var bucketID platform2.ID
 var altBucketID platform2.ID
 
 func init() {
-	mapping := platform.DBRPMappingV2{
+	mapping := platform.DBRPMapping{
 		Database:        "db0",
 		RetentionPolicy: "autogen",
 		Default:         true,
 		OrganizationID:  organizationID,
 		BucketID:        bucketID,
 	}
-	altMapping := platform.DBRPMappingV2{
+	altMapping := platform.DBRPMapping{
 		Database:        "db0",
 		RetentionPolicy: "autogen",
 		Default:         true,
 		OrganizationID:  organizationID,
 		BucketID:        altBucketID,
 	}
-	dbrpMappingSvc.FindByIDFn = func(ctx context.Context, orgID, id platform2.ID) (*platform.DBRPMappingV2, error) {
+	dbrpMappingSvc.FindByIDFn = func(ctx context.Context, orgID, id platform2.ID) (*platform.DBRPMapping, error) {
 		return &mapping, nil
 	}
-	dbrpMappingSvc.FindManyFn = func(ctx context.Context, filter platform.DBRPMappingFilterV2, opt ...platform.FindOptions) ([]*platform.DBRPMappingV2, int, error) {
+	dbrpMappingSvc.FindManyFn = func(ctx context.Context, filter platform.DBRPMappingFilter, opt ...platform.FindOptions) ([]*platform.DBRPMapping, int, error) {
 		m := &mapping
 		if filter.RetentionPolicy != nil && *filter.RetentionPolicy == "alternate" {
 			m = &altMapping
 		}
-		return []*platform.DBRPMappingV2{m}, 1, nil
+		return []*platform.DBRPMapping{m}, 1, nil
 	}
 }
 
@@ -84,7 +86,8 @@ func (f *fixture) Run(t *testing.T) {
 			err := ast.GetError(wantAST)
 			t.Fatalf("found parser errors in the want text: %s", err.Error())
 		}
-		want := ast.Format(wantAST)
+		want, err := astutil.Format(wantAST.Files[0])
+		require.NoError(t, err)
 
 		transpiler := influxql.NewTranspilerWithConfig(
 			dbrpMappingSvc,
@@ -98,7 +101,8 @@ func (f *fixture) Run(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%s:%d: unexpected error: %s", f.file, f.line, err)
 		}
-		got := ast.Format(pkg)
+		got, err := astutil.Format(pkg.Files[0])
+		require.NoError(t, err)
 
 		// Encode both of these to JSON and compare the results.
 		if want != got {

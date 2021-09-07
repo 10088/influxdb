@@ -13,6 +13,7 @@ import (
 
 	"github.com/influxdata/influxdb/v2/kit/platform"
 	"github.com/influxdata/influxdb/v2/kit/platform/errors"
+	"github.com/stretchr/testify/require"
 
 	"github.com/go-chi/chi"
 	"github.com/google/go-cmp/cmp"
@@ -20,25 +21,10 @@ import (
 	"github.com/influxdata/httprouter"
 	"github.com/influxdata/influxdb/v2"
 	icontext "github.com/influxdata/influxdb/v2/context"
-	"github.com/influxdata/influxdb/v2/inmem"
-	"github.com/influxdata/influxdb/v2/kv"
-	"github.com/influxdata/influxdb/v2/kv/migration/all"
 	"github.com/influxdata/influxdb/v2/mock"
 	itesting "github.com/influxdata/influxdb/v2/testing"
 	"go.uber.org/zap/zaptest"
 )
-
-func NewTestInmemStore(t *testing.T) (kv.Store, func(), error) {
-	t.Helper()
-
-	store := inmem.NewKVStore()
-
-	if err := all.Up(context.Background(), zaptest.NewLogger(t), store); err != nil {
-		t.Fatal(err)
-	}
-
-	return store, func() {}, nil
-}
 
 func TestService_handlePostAuthorization(t *testing.T) {
 	type fields struct {
@@ -162,11 +148,7 @@ func TestService_handlePostAuthorization(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Helper()
 
-			s, _, err := NewTestInmemStore(t)
-			if err != nil {
-				t.Fatal(err)
-			}
-
+			s := itesting.NewTestInmemStore(t)
 			storage, err := NewStore(s)
 			if err != nil {
 				t.Fatal(err)
@@ -392,6 +374,55 @@ func TestService_handleGetAuthorization(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestGetAuthorizationsWithNames(t *testing.T) {
+	t.Parallel()
+
+	testUserName := "user"
+	testUserID := itesting.MustIDBase16("6c7574652c206f6e")
+	testOrgName := "org"
+	testOrgID := itesting.MustIDBase16("9d70616e656d2076")
+
+	ts := &tenantService{
+		FindUserFn: func(ctx context.Context, f influxdb.UserFilter) (*influxdb.User, error) {
+			require.Equal(t, &testUserName, f.Name)
+
+			return &influxdb.User{
+				ID:   testUserID,
+				Name: testUserName,
+			}, nil
+		},
+
+		FindOrganizationF: func(ctx context.Context, f influxdb.OrganizationFilter) (*influxdb.Organization, error) {
+			require.Equal(t, &testOrgName, f.Name)
+
+			return &influxdb.Organization{
+				ID:   testOrgID,
+				Name: testOrgName,
+			}, nil
+		},
+	}
+
+	as := &mock.AuthorizationService{
+		FindAuthorizationsFn: func(ctx context.Context, f influxdb.AuthorizationFilter, opts ...influxdb.FindOptions) ([]*influxdb.Authorization, int, error) {
+			require.Equal(t, &testOrgID, f.OrgID)
+			require.Equal(t, &testUserID, f.UserID)
+
+			return []*influxdb.Authorization{}, 0, nil
+		},
+	}
+
+	h := NewHTTPAuthHandler(zaptest.NewLogger(t), as, ts)
+
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest("get", "http://any.url", nil)
+	qp := r.URL.Query()
+	qp.Add("user", testUserName)
+	qp.Add("org", testOrgName)
+	r.URL.RawQuery = qp.Encode()
+
+	h.handleGetAuthorizations(w, r)
 }
 
 func TestService_handleGetAuthorizations(t *testing.T) {
@@ -688,11 +719,7 @@ func TestService_handleGetAuthorizations(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Helper()
 
-			s, _, err := NewTestInmemStore(t)
-			if err != nil {
-				t.Fatal(err)
-			}
-
+			s := itesting.NewTestInmemStore(t)
 			storage, err := NewStore(s)
 			if err != nil {
 				t.Fatal(err)

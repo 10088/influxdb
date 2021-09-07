@@ -86,34 +86,6 @@ func QueryTracing() BoolFlag {
 	return queryTracing
 }
 
-var notebooks = MakeBoolFlag(
-	"Notebooks",
-	"notebooks",
-	"Monitoring Team",
-	false,
-	Temporary,
-	true,
-)
-
-// Notebooks - Determine if the notebook feature's route and navbar icon are visible to the user
-func Notebooks() BoolFlag {
-	return notebooks
-}
-
-var notebooksApi = MakeBoolFlag(
-	"Notebooks Service API",
-	"notebooksApi",
-	"Edge Team",
-	true,
-	Temporary,
-	true,
-)
-
-// NotebooksServiceApi - Enable the Equivalent notebooksd Service API
-func NotebooksServiceApi() BoolFlag {
-	return notebooksApi
-}
-
 var injectLatestSuccessTime = MakeBoolFlag(
 	"Inject Latest Success Time",
 	"injectLatestSuccessTime",
@@ -156,34 +128,6 @@ func TimeFilterFlags() BoolFlag {
 	return timeFilterFlags
 }
 
-var csvUploader = MakeBoolFlag(
-	"UI CSV Uploader",
-	"csvUploader",
-	"Monitoring Team",
-	true,
-	Temporary,
-	true,
-)
-
-// UiCsvUploader - Adds the ability to upload data from a CSV file to a bucket
-func UiCsvUploader() BoolFlag {
-	return csvUploader
-}
-
-var editTelegrafs = MakeBoolFlag(
-	"Editable Telegraf Configurations",
-	"editTelegrafs",
-	"Monitoring Team",
-	true,
-	Temporary,
-	true,
-)
-
-// EditableTelegrafConfigurations - Edit telegraf configurations from the UI
-func EditableTelegrafConfigurations() BoolFlag {
-	return editTelegrafs
-}
-
 var cursorAtEOF = MakeBoolFlag(
 	"Default Monaco Selection to EOF",
 	"cursorAtEOF",
@@ -212,32 +156,18 @@ func RefreshSingleCell() BoolFlag {
 	return refreshSingleCell
 }
 
-var rangeAnnotations = MakeBoolFlag(
-	"Range Annotations",
-	"rangeAnnotations",
-	"Jill Pelavin/ Dumplings Team",
+var replicationStreamBackend = MakeBoolFlag(
+	"Replication Stream Backend",
+	"replicationStreamBackend",
+	"Edge Team",
 	false,
 	Temporary,
 	true,
 )
 
-// RangeAnnotations - Enables the creation of Range Annotations on Drag (if annotation write mode is activated)
-func RangeAnnotations() BoolFlag {
-	return rangeAnnotations
-}
-
-var annotations = MakeBoolFlag(
-	"Annotations UI",
-	"annotations",
-	"Monitoring Team",
-	false,
-	Temporary,
-	true,
-)
-
-// AnnotationsUi - Management, display, and manual addition of Annotations from the UI
-func AnnotationsUi() BoolFlag {
-	return annotations
+// ReplicationStreamBackend - Enable replication-stream APIs and underlying synchronization queues
+func ReplicationStreamBackend() BoolFlag {
+	return replicationStreamBackend
 }
 
 var all = []Flag{
@@ -247,17 +177,12 @@ var all = []Flag{
 	memoryOptimizedFill,
 	memoryOptimizedSchemaMutation,
 	queryTracing,
-	notebooks,
-	notebooksApi,
 	injectLatestSuccessTime,
 	enforceOrgDashboardLimits,
 	timeFilterFlags,
-	csvUploader,
-	editTelegrafs,
 	cursorAtEOF,
 	refreshSingleCell,
-	rangeAnnotations,
-	annotations,
+	replicationStreamBackend,
 }
 
 var byKey = map[string]Flag{
@@ -267,15 +192,10 @@ var byKey = map[string]Flag{
 	"memoryOptimizedFill":           memoryOptimizedFill,
 	"memoryOptimizedSchemaMutation": memoryOptimizedSchemaMutation,
 	"queryTracing":                  queryTracing,
-	"notebooks":                     notebooks,
-	"notebooksApi":                  notebooksApi,
 	"injectLatestSuccessTime":       injectLatestSuccessTime,
 	"enforceOrgDashboardLimits":     enforceOrgDashboardLimits,
 	"timeFilterFlags":               timeFilterFlags,
-	"csvUploader":                   csvUploader,
-	"editTelegrafs":                 editTelegrafs,
 	"cursorAtEOF":                   cursorAtEOF,
 	"refreshSingleCell":             refreshSingleCell,
-	"rangeAnnotations":              rangeAnnotations,
-	"annotations":                   annotations,
+	"replicationStreamBackend":      replicationStreamBackend,
 }

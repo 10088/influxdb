@@ -1,5 +1,5 @@
-// +build sqlite_json
-// +build sqlite_foreign_keys
+//go:build sqlite_json && sqlite_foreign_keys
+// +build sqlite_json,sqlite_foreign_keys
 
 package annotations
 
@@ -1031,7 +1031,7 @@ func newTestService(t *testing.T) (*Service, func(t *testing.T)) {
 	err := sqliteMigrator.Up(ctx, migrations.All)
 	require.NoError(t, err)
 
-	svc := NewService(zap.NewNop(), store)
+	svc := NewService(store)
 
 	return svc, clean
 }

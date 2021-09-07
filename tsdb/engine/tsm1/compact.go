@@ -40,6 +40,10 @@ const (
 
 	// TSMFileExtension is the extension used for TSM files.
 	TSMFileExtension = "tsm"
+
+	// DefaultMaxSavedErrors is the number of errors that are stored by a TSMBatchKeyReader before
+	// subsequent errors are discarded
+	DefaultMaxSavedErrors = 100
 )
 
 var (
@@ -89,9 +93,9 @@ type CompactionGroup []string
 // CompactionPlanner determines what TSM files and WAL segments to include in a
 // given compaction run.
 type CompactionPlanner interface {
-	Plan(lastWrite time.Time) []CompactionGroup
-	PlanLevel(level int) []CompactionGroup
-	PlanOptimize() []CompactionGroup
+	Plan(lastWrite time.Time) ([]CompactionGroup, int64)
+	PlanLevel(level int) ([]CompactionGroup, int64)
+	PlanOptimize() ([]CompactionGroup, int64)
 	Release(group []CompactionGroup)
 	FullyCompacted() (bool, string)
 
@@ -234,13 +238,13 @@ func (c *DefaultPlanner) ForceFull() {
 }
 
 // PlanLevel returns a set of TSM files to rewrite for a specific level.
-func (c *DefaultPlanner) PlanLevel(level int) []CompactionGroup {
+func (c *DefaultPlanner) PlanLevel(level int) ([]CompactionGroup, int64) {
 	// If a full plan has been requested, don't plan any levels which will prevent
 	// the full plan from acquiring them.
 	c.mu.RLock()
 	if c.forceFull {
 		c.mu.RUnlock()
-		return nil
+		return nil, 0
 	}
 	c.mu.RUnlock()
 
@@ -252,7 +256,7 @@ func (c *DefaultPlanner) PlanLevel(level int) []CompactionGroup {
 	// If there is only one generation and no tombstones, then there's nothing to
 	// do.
 	if len(generations) <= 1 && !generations.hasTombstones() {
-		return nil
+		return nil, 0
 	}
 
 	// Group each generation by level such that two adjacent generations in the same
@@ -321,22 +325,22 @@ func (c *DefaultPlanner) PlanLevel(level int) []CompactionGroup {
 	}
 
 	if !c.acquire(cGroups) {
-		return nil
+		return nil, int64(len(cGroups))
 	}
 
-	return cGroups
+	return cGroups, int64(len(cGroups))
 }
 
 // PlanOptimize returns all TSM files if they are in different generations in order
 // to optimize the index across TSM files.  Each returned compaction group can be
 // compacted concurrently.
-func (c *DefaultPlanner) PlanOptimize() []CompactionGroup {
+func (c *DefaultPlanner) PlanOptimize() ([]CompactionGroup, int64) {
 	// If a full plan has been requested, don't plan any levels which will prevent
 	// the full plan from acquiring them.
 	c.mu.RLock()
 	if c.forceFull {
 		c.mu.RUnlock()
-		return nil
+		return nil, 0
 	}
 	c.mu.RUnlock()
 
@@ -348,7 +352,7 @@ func (c *DefaultPlanner) PlanOptimize() []CompactionGroup {
 	// If there is only one generation and no tombstones, then there's nothing to
 	// do.
 	if len(generations) <= 1 && !generations.hasTombstones() {
-		return nil
+		return nil, 0
 	}
 
 	// Group each generation by level such that two adjacent generations in the same
@@ -413,15 +417,15 @@ func (c *DefaultPlanner) PlanOptimize() []CompactionGroup {
 	}
 
 	if !c.acquire(cGroups) {
-		return nil
+		return nil, int64(len(cGroups))
 	}
 
-	return cGroups
+	return cGroups, int64(len(cGroups))
 }
 
 // Plan returns a set of TSM files to rewrite for level 4 or higher.  The planning returns
 // multiple groups if possible to allow compactions to run concurrently.
-func (c *DefaultPlanner) Plan(lastWrite time.Time) []CompactionGroup {
+func (c *DefaultPlanner) Plan(lastWrite time.Time) ([]CompactionGroup, int64) {
 	generations := c.findGenerations(true)
 
 	c.mu.RLock()
@@ -471,19 +475,19 @@ func (c *DefaultPlanner) Plan(lastWrite time.Time) []CompactionGroup {
 
 		// Make sure we have more than 1 file and more than 1 generation
 		if len(tsmFiles) <= 1 || genCount <= 1 {
-			return nil
+			return nil, 0
 		}
 
 		group := []CompactionGroup{tsmFiles}
 		if !c.acquire(group) {
-			return nil
+			return nil, int64(len(group))
 		}
-		return group
+		return group, int64(len(group))
 	}
 
 	// don't plan if nothing has changed in the filestore
 	if c.lastPlanCheck.After(c.FileStore.LastModified()) && !generations.hasTombstones() {
-		return nil
+		return nil, 0
 	}
 
 	c.lastPlanCheck = time.Now()
@@ -491,7 +495,7 @@ func (c *DefaultPlanner) Plan(lastWrite time.Time) []CompactionGroup {
 	// If there is only one generation, return early to avoid re-compacting the same file
 	// over and over again.
 	if len(generations) <= 1 && !generations.hasTombstones() {
-		return nil
+		return nil, 0
 	}
 
 	// Need to find the ending point for level 4 files.  They will be the oldest files. We scan
@@ -584,7 +588,7 @@ func (c *DefaultPlanner) Plan(lastWrite time.Time) []CompactionGroup {
 	}
 
 	if len(groups) == 0 {
-		return nil
+		return nil, 0
 	}
 
 	// With the groups, we need to evaluate whether the group as a whole can be compacted
@@ -612,9 +616,9 @@ func (c *DefaultPlanner) Plan(lastWrite time.Time) []CompactionGroup {
 	}
 
 	if !c.acquire(tsmFiles) {
-		return nil
+		return nil, int64(len(tsmFiles))
 	}
-	return tsmFiles
+	return tsmFiles, int64(len(tsmFiles))
 }
 
 // findGenerations groups all the TSM files by generation based
@@ -954,7 +958,7 @@ func (c *Compactor) compact(fast bool, tsmFiles []string, logger *zap.Logger) ([
 		return nil, nil
 	}
 
-	tsm, err := NewTSMBatchKeyIterator(size, fast, intC, tsmFiles, trs...)
+	tsm, err := NewTSMBatchKeyIterator(size, fast, DefaultMaxSavedErrors, intC, tsmFiles, trs...)
 	if err != nil {
 		return nil, err
 	}
@@ -1660,15 +1664,28 @@ type tsmBatchKeyIterator struct {
 	// without decode
 	merged    blocks
 	interrupt chan struct{}
+
+	// maxErrors is the maximum number of errors to store before discarding.
+	maxErrors int
+	// overflowErrors is the number of errors we have ignored.
+	overflowErrors int
 }
 
-func (t *tsmBatchKeyIterator) AppendError(err error) {
-	t.errs = append(t.errs, err)
+func (t *tsmBatchKeyIterator) AppendError(err error) bool {
+	if t.maxErrors > len(t.errs) {
+		t.errs = append(t.errs, err)
+		// Was the error stored?
+		return true
+	} else {
+		// Was the error dropped
+		t.overflowErrors++
+		return false
+	}
 }
 
 // NewTSMBatchKeyIterator returns a new TSM key iterator from readers.
 // size indicates the maximum number of values to encode in a single block.
-func NewTSMBatchKeyIterator(size int, fast bool, interrupt chan struct{}, tsmFiles []string, readers ...*TSMReader) (KeyIterator, error) {
+func NewTSMBatchKeyIterator(size int, fast bool, maxErrors int, interrupt chan struct{}, tsmFiles []string, readers ...*TSMReader) (KeyIterator, error) {
 	var iter []*BlockIterator
 	for _, r := range readers {
 		iter = append(iter, r.BlockIterator())
@@ -1689,6 +1706,7 @@ func NewTSMBatchKeyIterator(size int, fast bool, interrupt chan struct{}, tsmFil
 		mergedBooleanValues:  &tsdb.BooleanArray{},
 		mergedStringValues:   &tsdb.StringArray{},
 		interrupt:            interrupt,
+		maxErrors:            maxErrors,
 	}, nil
 }
 
@@ -1916,7 +1934,12 @@ func (k *tsmBatchKeyIterator) Err() error {
 	if len(k.errs) == 0 {
 		return nil
 	}
-	return k.errs
+	// Copy the errors before appending the dropped error count
+	var errs TSMErrors
+	errs = make([]error, 0, len(k.errs)+1)
+	errs = append(errs, k.errs...)
+	errs = append(errs, fmt.Errorf("additional errors dropped: %d", k.overflowErrors))
+	return errs
 }
 
 type cacheKeyIterator struct {

@@ -2013,24 +2013,28 @@ func (e *Engine) compact(wg *sync.WaitGroup) {
 		case <-t.C:
 
 			// Find our compaction plans
-			level1Groups := e.CompactionPlan.PlanLevel(1)
-			level2Groups := e.CompactionPlan.PlanLevel(2)
-			level3Groups := e.CompactionPlan.PlanLevel(3)
-			level4Groups := e.CompactionPlan.Plan(e.LastModified())
-			atomic.StoreInt64(&e.stats.TSMFullCompactionsQueue, int64(len(level4Groups)))
+			level1Groups, len1 := e.CompactionPlan.PlanLevel(1)
+			level2Groups, len2 := e.CompactionPlan.PlanLevel(2)
+			level3Groups, len3 := e.CompactionPlan.PlanLevel(3)
+			level4Groups, len4 := e.CompactionPlan.Plan(e.LastModified())
+			atomic.StoreInt64(&e.stats.TSMFullCompactionsQueue, len4)
 
 			// If no full compactions are need, see if an optimize is needed
 			if len(level4Groups) == 0 {
-				level4Groups = e.CompactionPlan.PlanOptimize()
-				atomic.StoreInt64(&e.stats.TSMOptimizeCompactionsQueue, int64(len(level4Groups)))
+				level4Groups, len4 = e.CompactionPlan.PlanOptimize()
+				atomic.StoreInt64(&e.stats.TSMOptimizeCompactionsQueue, len4)
 			}
 
 			// Update the level plan queue stats
-			atomic.StoreInt64(&e.stats.TSMCompactionsQueue[0], int64(len(level1Groups)))
-			atomic.StoreInt64(&e.stats.TSMCompactionsQueue[1], int64(len(level2Groups)))
-			atomic.StoreInt64(&e.stats.TSMCompactionsQueue[2], int64(len(level3Groups)))
+			// For stats, use the length needed, even if the lock was
+			// not acquired
+			atomic.StoreInt64(&e.stats.TSMCompactionsQueue[0], len1)
+			atomic.StoreInt64(&e.stats.TSMCompactionsQueue[1], len2)
+			atomic.StoreInt64(&e.stats.TSMCompactionsQueue[2], len3)
 
 			// Set the queue depths on the scheduler
+			// Use the real queue depth, dependent on acquiring
+			// the file locks.
 			e.scheduler.setDepth(1, len(level1Groups))
 			e.scheduler.setDepth(2, len(level2Groups))
 			e.scheduler.setDepth(3, len(level3Groups))
@@ -2386,6 +2390,40 @@ func (e *Engine) CreateIterator(ctx context.Context, measurement string, opt que
 	return newMergeFinalizerIterator(ctx, itrs, opt, e.logger)
 }
 
+// createSeriesIterator creates an optimized series iterator if possible.
+// We exclude less-common cases for now as not worth implementing.
+func (e *Engine) createSeriesIterator(measurement string, ref *influxql.VarRef, is tsdb.IndexSet, opt query.IteratorOptions) (query.Iterator, error) {
+	// Main check to see if we are trying to create a seriesKey iterator
+	if ref == nil || ref.Val != "_seriesKey" || len(opt.Aux) != 0 {
+		return nil, nil
+	}
+	// Check some other cases that we could maybe handle, but don't
+	if len(opt.Dimensions) > 0 {
+		return nil, nil
+	}
+	if opt.SLimit != 0 || opt.SOffset != 0 {
+		return nil, nil
+	}
+	if opt.StripName {
+		return nil, nil
+	}
+	if opt.Ordered {
+		return nil, nil
+	}
+	// Actual creation of the iterator
+	seriesCursor, err := is.MeasurementSeriesKeyByExprIterator([]byte(measurement), opt.Condition, opt.Authorizer)
+	if err != nil {
+		seriesCursor.Close()
+		return nil, err
+	}
+	var seriesIterator query.Iterator
+	seriesIterator = newSeriesIterator(measurement, seriesCursor)
+	if opt.InterruptCh != nil {
+		seriesIterator = query.NewInterruptIterator(seriesIterator, opt.InterruptCh)
+	}
+	return seriesIterator, nil
+}
+
 func (e *Engine) createCallIterator(ctx context.Context, measurement string, call *influxql.Call, opt query.IteratorOptions) ([]query.Iterator, error) {
 	ref, _ := call.Args[0].(*influxql.VarRef)
 
@@ -2393,6 +2431,28 @@ func (e *Engine) createCallIterator(ctx context.Context, measurement string, cal
 		return nil, err
 	} else if !exists {
 		return nil, nil
+	}
+
+	// check for optimized series iteration for tsi index
+	if e.index.Type() == tsdb.TSI1IndexName {
+		indexSet := tsdb.IndexSet{Indexes: []tsdb.Index{e.index}, SeriesFile: e.sfile}
+		seriesOpt := opt
+		if len(opt.Dimensions) == 0 && (call.Name == "count" || call.Name == "sum_hll") {
+			// no point ordering the series if we are just counting all of them
+			seriesOpt.Ordered = false
+		}
+		seriesIterator, err := e.createSeriesIterator(measurement, ref, indexSet, seriesOpt)
+		if err != nil {
+			return nil, err
+		}
+		if seriesIterator != nil {
+			callIterator, err := query.NewCallIterator(seriesIterator, opt)
+			if err != nil {
+				seriesIterator.Close()
+				return nil, err
+			}
+			return []query.Iterator{callIterator}, nil
+		}
 	}
 
 	// Determine tagsets for this measurement based on dimensions and filters.

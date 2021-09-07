@@ -6,6 +6,7 @@ package mocks
 
 import (
 	context "context"
+	"github.com/influxdata/influxdb/v2/kit/platform"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
@@ -50,47 +51,32 @@ func (mr *MockDBRPMappingServiceMockRecorder) Create(arg0, arg1 interface{}) *go
 }
 
 // Delete mocks base method
-func (m *MockDBRPMappingService) Delete(arg0 context.Context, arg1, arg2, arg3 string) error {
+func (m *MockDBRPMappingService) Delete(arg0 context.Context, arg1, arg2 platform.ID) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Delete", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "Delete", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Delete indicates an expected call of Delete
-func (mr *MockDBRPMappingServiceMockRecorder) Delete(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+func (mr *MockDBRPMappingServiceMockRecorder) Delete(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockDBRPMappingService)(nil).Delete), arg0, arg1, arg2, arg3)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockDBRPMappingService)(nil).Delete), arg0, arg1, arg2)
 }
 
-// Find mocks base method
-func (m *MockDBRPMappingService) Find(arg0 context.Context, arg1 influxdb.DBRPMappingFilter) (*influxdb.DBRPMapping, error) {
+// FindByID mocks base method
+func (m *MockDBRPMappingService) FindByID(arg0 context.Context, arg1, arg2 platform.ID) (*influxdb.DBRPMapping, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Find", arg0, arg1)
+	ret := m.ctrl.Call(m, "FindByID", arg0, arg1, arg2)
 	ret0, _ := ret[0].(*influxdb.DBRPMapping)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// Find indicates an expected call of Find
-func (mr *MockDBRPMappingServiceMockRecorder) Find(arg0, arg1 interface{}) *gomock.Call {
+// FindByID indicates an expected call of FindByID
+func (mr *MockDBRPMappingServiceMockRecorder) FindByID(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Find", reflect.TypeOf((*MockDBRPMappingService)(nil).Find), arg0, arg1)
-}
-
-// FindBy mocks base method
-func (m *MockDBRPMappingService) FindBy(arg0 context.Context, arg1, arg2, arg3 string) (*influxdb.DBRPMapping, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FindBy", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(*influxdb.DBRPMapping)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// FindBy indicates an expected call of FindBy
-func (mr *MockDBRPMappingServiceMockRecorder) FindBy(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindBy", reflect.TypeOf((*MockDBRPMappingService)(nil).FindBy), arg0, arg1, arg2, arg3)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindByID", reflect.TypeOf((*MockDBRPMappingService)(nil).FindByID), arg0, arg1, arg2)
 }
 
 // FindMany mocks base method
@@ -112,4 +98,18 @@ func (mr *MockDBRPMappingServiceMockRecorder) FindMany(arg0, arg1 interface{}, a
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindMany", reflect.TypeOf((*MockDBRPMappingService)(nil).FindMany), varargs...)
+}
+
+// Update mocks base method
+func (m *MockDBRPMappingService) Update(arg0 context.Context, arg1 *influxdb.DBRPMapping) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Update", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Update indicates an expected call of Update
+func (mr *MockDBRPMappingServiceMockRecorder) Update(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Update", reflect.TypeOf((*MockDBRPMappingService)(nil).Update), arg0, arg1)
 }

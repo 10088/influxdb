@@ -499,7 +499,7 @@ type Stats struct {
 	NTags    int
 }
 
-func (s *Stats) Update(o Stats) {
+func (s Stats) Update(o Stats) Stats {
 	s.NRows += o.NRows
 	if s.Latest.IsZero() || o.Latest.Unix() > s.Latest.Unix() {
 		s.Latest = o.Latest
@@ -516,6 +516,7 @@ func (s *Stats) Update(o Stats) {
 	if o.NTags > s.NTags {
 		s.NTags = o.NTags
 	}
+	return s
 }
 
 func writeTable(ctx context.Context, t *ToTransformation, tbl flux.Table) (err error) {
@@ -598,7 +599,7 @@ func writeTable(ctx context.Context, t *ToTransformation, tbl flux.Table) (err e
 						}
 					}
 					// TODO(docmerlin): instead of doing this sort of thing, it would be nice if we had a way that allocated a lot less.
-					kv = append(kv, []byte(col.Label), er.Strings(j).Value(i))
+					kv = append(kv, []byte(col.Label), []byte(er.Strings(j).Value(i)))
 				}
 			}
 
@@ -655,9 +656,7 @@ func writeTable(ctx context.Context, t *ToTransformation, tbl flux.Table) (err e
 			}
 			_, ok := measurementStats[measurementName]
 			if ok {
-				existing := measurementStats[measurementName]
-				existing.Update(mstats)
-				mstats = existing
+				mstats = measurementStats[measurementName].Update(mstats)
 			}
 			measurementStats[measurementName] = mstats
 
