@@ -66,14 +66,24 @@ workflows:
           requires:
             - lint
             - package-linux
-      - perf-test:
+      - perf_test:
+          name: perf-test-flux
+          format: flux-http
+          record_ingest_results: true
+          requires:
+            - test-linux-packaging
           filters:
             branches:
               only: dm-parallel-native-build-20855
+      - perf_test:
+          name: perf-test-influxql
+          format: http
+          record_ingest_results: false
           requires:
-            - package-linux
-            - lint
-            - test
+            - test-linux-packaging
+          filters:
+            branches:
+              only: dm-parallel-native-build-20855
 
 commands:
   setup:
@@ -264,8 +274,12 @@ jobs:
                 -auto-approve
 
   perf-test:
-    machine:
-      image: ubuntu-2004:202010-01
+    executor: linux-amd64
+    parameters:
+      format:
+        type: string
+      record_ingest_results:
+        type: boolean
     steps:
       - attach_workspace:
           at: /tmp/workspace
@@ -276,4 +290,9 @@ jobs:
       - run:
           name: Run test in AWS instance
           no_output_timeout: 20m
-          command: AWS_ACCESS_KEY_ID=${TEST_AWS_ACCESS_KEY_ID} AWS_SECRET_ACCESS_KEY=${TEST_AWS_SECRET_ACCESS_KEY} scripts/ci/perf_test.sh
+          command: >
+            AWS_ACCESS_KEY_ID=${TEST_AWS_ACCESS_KEY_ID}
+            AWS_SECRET_ACCESS_KEY=${TEST_AWS_SECRET_ACCESS_KEY}
+            TEST_FORMAT=<< parameters.format >>
+            TEST_RECORD_INGEST_RESULTS=<< parameters.record_ingest_results >>
+            scripts/ci/perf_test.sh
