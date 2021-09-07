@@ -65,7 +65,7 @@ nfpms:
           armhf: armv7hl
         file_name_template: influxdb2-{{if index .Env "IS_NIGHTLY"}}nightly{{else}}{{.Version}}{{end}}.{{ .Arch }}
       deb:
-        file_name_template: influxdb2-{{if index .Env "IS_NIGHTLY"}}nightly{{ekse}}{{.Version}}{{end}}-{{ .Arch }}
+        file_name_template: influxdb2-{{if index .Env "IS_NIGHTLY"}}nightly{{else}}{{.Version}}{{end}}-{{ .Arch }}
     vendor: InfluxData
     homepage: https://influxdata.com
     maintainer: support@influxdb.com
