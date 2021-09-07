@@ -3,24 +3,24 @@ version: 2.1
 executors:
   linux-amd64:
     machine:
-      image: ubuntu-2004:202104-01
-    resource_class: large
+      image: ubuntu-2004:202107-02
+      resource_class: large
 
   linux-arm64:
     machine:
-      image: ubuntu-2004:202104-01
-    resource_class: arm.large
+      image: ubuntu-2004:202107-02
+      resource_class: arm.large
 
   mac:
     macos:
       xcode: 12.4.0
-    resource_class: medium
+      resource_class: medium
     shell: /bin/bash -eo pipefail
 
   windows:
     machine:
       image: windows-server-2019-vs2019:stable
-    resource_class: windows.medium
+      resource_class: windows.medium
     shell: bash.exe -eo pipefail
 
 workflows:
