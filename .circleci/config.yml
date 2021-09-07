@@ -66,19 +66,19 @@ workflows:
           requires:
             - lint
             - package-linux
-      - perf_test:
+      - perf-test:
           name: perf-test-flux
           format: flux-http
-          record_ingest_results: true
+          record-ingest-results: true
           requires:
             - test-linux-packaging
           filters:
             branches:
               only: dm-parallel-native-build-20855
-      - perf_test:
+      - perf-test:
           name: perf-test-influxql
           format: http
-          record_ingest_results: false
+          record-ingest-results: false
           requires:
             - test-linux-packaging
           filters:
@@ -278,7 +278,7 @@ jobs:
     parameters:
       format:
         type: string
-      record_ingest_results:
+      record-ingest-results:
         type: boolean
     steps:
       - attach_workspace:
@@ -294,5 +294,5 @@ jobs:
             AWS_ACCESS_KEY_ID=${TEST_AWS_ACCESS_KEY_ID}
             AWS_SECRET_ACCESS_KEY=${TEST_AWS_SECRET_ACCESS_KEY}
             TEST_FORMAT=<< parameters.format >>
-            TEST_RECORD_INGEST_RESULTS=<< parameters.record_ingest_results >>
+            TEST_RECORD_INGEST_RESULTS=<< parameters.record-ingest-results >>
             scripts/ci/perf_test.sh
