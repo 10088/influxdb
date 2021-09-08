@@ -75,7 +75,7 @@ workflows:
           format: flux-http
           record-ingest-results: true
           requires:
-            - test-linux-packaging
+            - packaging-test
           filters:
             branches:
               only: dm-parallel-native-build-20855
@@ -84,7 +84,7 @@ workflows:
           format: http
           record-ingest-results: false
           requires:
-            - test-linux-packaging
+            - packaging-test
           filters:
             branches:
               only: dm-parallel-native-build-20855
