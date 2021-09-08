@@ -21,13 +21,25 @@ function install_nfpm() {
 
 function create_package() {
     local -r arch=$1 version=$2 bindir=$3 packager=$4
+    local version_shorthand
+    case ${version} in
+        *SNAPSHOT*)
+            version_shorthand=SNAPSHOT
+            ;;
+        *nightly*)
+            version_shorthand=nightly
+            ;;
+        *)
+            version_shorthand=${version}
+            ;;
+    esac
     local package_name
     case ${packager} in
         deb)
-            package_name=influxdb2-${version}-${arch}.deb
+            package_name=influxdb2-${version_shorthand}-${arch}.deb
             ;;
         rpm)
-            package_name=influxdb2-${version}.${arch}.rpm
+            package_name=influxdb2-${version_shorthand}.${arch}.rpm
             ;;
         *)
             >&2 echo Unknown packager ${packager}!

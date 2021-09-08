@@ -6,12 +6,26 @@ declare -r ROOT_DIR="$(dirname "$(dirname "$CI_SCRIPT_DIR")")"
 declare -r DIST_DIR="$ROOT_DIR/dist"
 
 function main () {
-    local -r out_dir=$1 version=dev # TODO: Pass in version
+    local -r out_dir=$1
     if [ ! -d "$out_dir" ]; then
         >&2 echo Error: "'$out_dir'" is not a directory
         exit 1
     fi
-    local -r sha_file=${out_dir}/influxdb2-${version}.sha256
+
+    local -r version=$(${DIST_DIR}/influxd_linux_amd64/influxd version | cut -f 2 -d ' ')
+    local version_shorthand
+    case ${version} in
+        *SNAPSHOT*)
+            version_shorthand=SNAPSHOT
+            ;;
+        *nightly*)
+            version_shorthand=nightly
+            ;;
+        *)
+            version_shorthand=${version}
+            ;;
+    esac
+    local -r sha_file=${out_dir}/influxdb2-${version_shorthand}.sha256
 
     # Linux AMD64
     (
@@ -19,7 +33,7 @@ function main () {
         cd "$DIST_DIR/influxd_linux_amd64"
 
         # Create archive
-        archive_dir=influxdb2-${version}-linux-amd64
+        archive_dir=influxdb2-${version_shorthand}-linux-amd64
         archive=${archive_dir}.tar.gz
 
         mkdir ${archive_dir}
@@ -27,8 +41,8 @@ function main () {
         tar czf ${archive} ${archive_dir}
 
         # Hash the archive, deb, and rpm.
-        deb=influxdb2-${version}-amd64.deb
-        rpm=influxdb2-${version}.x86_64.rpm
+        deb=influxdb2-${version_shorthand}-amd64.deb
+        rpm=influxdb2-${version_shorthand}.x86_64.rpm
         sha256sum ${archive} ${deb} ${rpm} >> ${sha_file}
 
         # Copy the archive, deb, and rpm to the output dir.
@@ -41,7 +55,7 @@ function main () {
         cd "$DIST_DIR/influxd_linux_arm64"
 
         # Create archive
-        archive_dir=influxdb2-${version}-linux-arm64
+        archive_dir=influxdb2-${version_shorthand}-linux-arm64
         archive=${archive_dir}.tar.gz
 
         mkdir ${archive_dir}
@@ -49,8 +63,8 @@ function main () {
         tar czf ${archive} ${archive_dir}
 
         # Hash the archive, deb, and rpm.
-        deb=influxdb2-${version}-arm64.deb
-        rpm=influxdb2-${version}.aarch64.rpm
+        deb=influxdb2-${version_shorthand}-arm64.deb
+        rpm=influxdb2-${version_shorthand}.aarch64.rpm
         sha256sum ${archive} ${deb} ${rpm} >> ${sha_file}
 
         # Copy the archive, deb, and rpm to the output dir.
@@ -63,7 +77,7 @@ function main () {
         cd "$DIST_DIR/influxd_darwin_amd64"
 
         # Create archive
-        archive_dir=influxdb2-${version}-darwin-amd64
+        archive_dir=influxdb2-${version_shorthand}-darwin-amd64
         archive=${archive_dir}.tar.gz
 
         mkdir ${archive_dir}
@@ -83,7 +97,7 @@ function main () {
         cd "$DIST_DIR/influxd_windows_amd64"
 
         # Create archive
-        archive_dir=influxdb2-${version}-windows-amd64
+        archive_dir=influxdb2-${version_shorthand}-windows-amd64
         archive=${archive_dir}.zip
 
         mkdir ${archive_dir}

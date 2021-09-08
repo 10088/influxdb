@@ -4,6 +4,10 @@ orbs:
   terraform: circleci/terraform@2.1.0
 
 executors:
+  docker-go:
+    docker:
+      - image: cimg/go:1.17
+
   linux-amd64:
     machine:
       image: ubuntu-2004:202107-02
@@ -59,7 +63,7 @@ workflows:
                 - linux-arm64
                 - mac
                 - windows
-      - test-linux-packaging:
+      - packaging-test:
           filters:
             branches:
               ignore: /pull\/[0-9]+/
@@ -161,8 +165,7 @@ jobs:
             - dist
 
   package-linux:
-    docker:
-      - image: cimg/go:1.17
+    executor: docker-go
     steps:
       - checkout
       - attach_workspace:
@@ -176,8 +179,7 @@ jobs:
             - dist
 
   publish-artifacts:
-    docker:
-      - image: cimg/go:1.17
+    executor: docker-go
     steps:
       - checkout
       - attach_workspace:
@@ -223,7 +225,7 @@ jobs:
       - store_test_results:
           path: ./test-results
 
-  test-linux-packaging:
+  packaging-test:
     executor: terraform/default
     steps:
       - attach_workspace:
@@ -238,7 +240,7 @@ jobs:
           name: Terraform apply
           command: |
             set -x
-            export DEBNAME="/tmp/workspace/artifacts/influxdb2-nightly-amd64.deb"
+            export DEBNAME="/tmp/workspace/artifacts/influxdb2-SNAPSHOT-amd64.deb"
             terraform -chdir=scripts/ci init -input=false
             AWS_ACCESS_KEY_ID=$TEST_AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY=$TEST_AWS_SECRET_ACCESS_KEY terraform \
               -chdir=scripts/ci \
