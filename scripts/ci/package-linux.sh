@@ -74,6 +74,8 @@ contents:
     dst: /etc/logrotate.d/influxdb
   - src: ${SCRIPT_DIR}/influxdb2-upgrade.sh
     dst: /usr/share/influxdb/influxdb2-upgrade.sh
+  - src: ${SCRIPT_DIR}/influxd-systemd-start.sh
+    dst: /usr/lib/influxdb/scripts/influxd-systemd-start.sh
 scripts:
   preinstall: ${SCRIPT_DIR}/pre-install.sh
   postinstall: ${SCRIPT_DIR}/post-install.sh
